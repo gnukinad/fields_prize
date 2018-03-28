@@ -228,6 +228,10 @@ def extract_host_phd(df_fname):
         # a = gut_tables[0]
 
         aff_name = a.find_next('tr').find_next('tr').text.strip()
+
+        # print('i is', i)
+        # print('aff_name ', aff_name)
+
         b = a.find_next('tr').find_next('tr')
 
         t = get_table(b)
@@ -240,9 +244,17 @@ def extract_host_phd(df_fname):
 
         ext = {'aff_name': aff_name, 'table': ext}
 
+        if 'Michigan' in aff_name:
+            print('qwewqeq')
+            # print(b)
+            # print(t)
+
         tables.append(ext)
         tables2.append(ext2)
         tables3.extend(ext2)
+
+    print('len(gut_tables)')
+    print(len(gut_tables))
 
     df = pd.DataFrame(tables3)
     df.to_excel(df_fname)
@@ -254,20 +266,33 @@ if __name__ == "__main__":
 
     '''concatenate two tables (with affiliation at time of a award and phd host affiliation)'''
 
-    df_host_phd_fname = 'field_prize_host_phd.xlsx'
-    df_awarded_aff_fname = 'field_prize_awarded_aff.xlsx'
+    # df_host_phd_fname = 'field_prize_host_phd.xlsx'
+    # df_awarded_aff_fname = 'field_prize_awarded_aff.xlsx'
+
+    df_host_phd_fname = 'field_prize_host_phd_extended.xlsx'
+    df_awarded_aff_fname = 'field_prize_awarded_aff_extended.xlsx'
 
     cname_awarded_aff = 'Medalists'
     cname_host_phd = 'name'
 
-    # extract field prize data
+    # runs this code to extract data
+    # beware you need to fix the names manually in both files due to inconsistency in namings
+    # perelman, margulis, thom, jones, cohen, kontsevich roth milnor, schwartz
     # extract_awarded_affiliations(df_awarded_aff_fname)
     # extract_host_phd(df_host_phd_fname)
+
+    # run this code to merge two dataframes
 
     awarded_aff = pd.read_excel(df_awarded_aff_fname)
     host_phd = pd.read_excel(df_host_phd_fname)
 
+
+
     common_winner_names = list(set(awarded_aff[cname_awarded_aff].tolist()) & set(host_phd[cname_host_phd].tolist()))
+
+    in_awarded_not_phd  = list(set(awarded_aff[cname_awarded_aff].tolist()) - set(host_phd[cname_host_phd].tolist()))
+
+    in_phd_not_awarded  = list(set(host_phd[cname_host_phd].tolist()) - set(awarded_aff[cname_awarded_aff].tolist()))
 
     df = pd.DataFrame(columns=[cname_host_phd, 'awarded_affiliation', 'host_phd_affiliation', 'last_affiliation', 'award_year', 'degree', 'citation']).set_index(cname_host_phd)
 
@@ -290,14 +315,14 @@ if __name__ == "__main__":
 
 
                 aaa.append({
-                    'name': name,
-                    'awarded_affiliation': dict_awarded_aff['Awarded_Affiliation'],
-                    'last_affiliation': dict_awarded_aff['Last_Affiliation'],
-                    'host_phd_affiliation': d['host_phd_aff'],
-                    'award_year': dict_awarded_aff['Year'],
-                    'degree': d['degree'],
-                    'citation': dict_awarded_aff['Citation'],
-                    'award':                'field'
+                    'name'                 : name,
+                    'awarded_affiliation'  : remove_square_par(dict_awarded_aff['Awarded_Affiliation']),
+                    'last_affiliation'     : remove_square_par(dict_awarded_aff['Last_Affiliation']),
+                    'host_phd_affiliation' : remove_square_par(d['host_phd_aff']),
+                    'award_year'           : dict_awarded_aff['Year'],
+                    'degree'               : d['degree'],
+                    'citation'             : remove_square_par(dict_awarded_aff['Citation']),
+                    'award'                : 'field'
                 })
 
         else:
@@ -306,16 +331,82 @@ if __name__ == "__main__":
 
 
             aaa.append({
-                'name': name,
-                'awarded_affiliation':  remove_square_par(dict_awarded_aff['Awarded_Affiliation']),
-                'last_affiliation':     remove_square_par(dict_awarded_aff['Last_Affiliation']),
-                'host_phd_affiliation': remove_square_par(dict_host_phd['host_phd_aff']),
-                'award_year':           dict_awarded_aff['Year'],
-                'degree':               remove_square_par(dict_host_phd['degree']),
-                'citation':             remove_square_par(dict_awarded_aff['Citation']),
-                'award':                'field'
+                'name'                 : name,
+                'awarded_affiliation'  : remove_square_par(dict_awarded_aff['Awarded_Affiliation']),
+                'last_affiliation'     : remove_square_par(dict_awarded_aff['Last_Affiliation']),
+                'host_phd_affiliation' : remove_square_par(dict_host_phd['host_phd_aff']),
+                'award_year'           : dict_awarded_aff['Year'],
+                'degree'               : remove_square_par(dict_host_phd['degree']),
+                'citation'             : remove_square_par(dict_awarded_aff['Citation']),
+                'award'                : 'field'
             })
 
 
+    # create df with names in awarded but not in phd
+    bbb = []
+    for i, name in enumerate(in_awarded_not_phd):
+
+        dict_awarded_aff = awarded_aff.groupby(cname_awarded_aff).get_group(name).to_dict('records')
+
+        dict_awarded_aff = dict_awarded_aff[0]
+
+        bbb.append({
+            'name'                 : name,
+            'awarded_affiliation'  : remove_square_par(dict_awarded_aff['Awarded_Affiliation']),
+            'last_affiliation'     : remove_square_par(dict_awarded_aff['Last_Affiliation']),
+            'host_phd_affiliation' : '',
+            'award_year'           : dict_awarded_aff['Year'],
+            'degree'               : '',
+            'citation'             : remove_square_par(dict_awarded_aff['Citation']),
+            'award'                : 'field'
+        })
+
+
+    # create df with names in phd but not in awarded
+    ccc = []
+    for i, name in enumerate(in_phd_not_awarded):
+
+        dict_host_phd = host_phd.groupby(cname_host_phd).get_group(name).to_dict('records')
+
+        if len(dict_host_phd) > 1:
+
+            for d in dict_host_phd:
+                # dict_host_phd = dict_host_phd[0]
+
+                ccc.append({
+                    'name'                 : name,
+                    'awarded_affiliation'  : '',
+                    'last_affiliation'     : '',
+                    'host_phd_affiliation' : remove_square_par(dict_host_phd['host_phd_aff']),
+                    'award_year'           : dict_host_phd['year'],
+                    'degree'               : dict_host_phd['degree'],
+                    'citation'             : '',
+                    'award'                : 'field'
+                })
+
+        else:
+
+            dict_host_phd = dict_host_phd[0]
+
+
+            ccc.append({
+                'name'                 : name,
+                'awarded_affiliation'  : '',
+                'last_affiliation'     : '',
+                'host_phd_affiliation' : remove_square_par(dict_host_phd['host_phd_aff']),
+                'award_year'           : dict_host_phd['year'],
+                'degree'               : dict_host_phd['degree'],
+                'citation'             : '',
+                'award'                : 'field'
+            })
+
     df = pd.DataFrame(aaa)
     df.to_excel('field_prize_concatenated.xlsx', index=False)
+
+    '''
+    df_awarded_aff = pd.DataFrame(bbb)
+    df_awarded_aff.to_excel('field_in_awarded_aff.xlsx', index=False)
+
+    df_host_phd = pd.DataFrame(ccc)
+    df_host_phd.to_excel('field_in_host_phd.xlsx', index=False)
+    '''
